@@ -5,11 +5,6 @@ import copy
 from matplotlib import pyplot as plt
 
 
-# TODO: improve the generation of initial points for the regions
-# TODO: improve style
-# TODO thicken borders!!!
-
-
 class Region:
     def __init__(self, code, edges):
         self.code = code
@@ -17,7 +12,7 @@ class Region:
         self.center = []
         self.isGreen = False
 
-    def coords(self):
+    def coordinates(self):
         return self.edges
 
     def full_region(self):
@@ -31,34 +26,14 @@ class Region:
         return [og_image[c[0]][c[1]] for c in self.full_region()]
 
 
-# image dimensions
-x, y, w, h = 150, 50, 880, 680
-
-# Read the image
-img_color = cv2.imread('plant3.jpg')[y:y+h, x:x+w]
-
-
-image = cv2.imread('plant3.jpg', cv2.IMREAD_GRAYSCALE)
-image_cropped = image[y:y+h, x:x+w]
-blurred = cv2.GaussianBlur(image_cropped, (5, 5), 0)
-image_edges = cv2.Canny(blurred, 50, 150)
-
-
-
-
-
-regions_map = [[0]*len(image_cropped[0]) for _ in range(len(image_cropped))]
-for i in range(len(image_edges)):
-    for j in range(len(image_edges[0])):
-        if image_edges[i][j] != 0:
-            regions_map[i][j] = 255
-
-
-
-
-
-def generate_centers(image: list[list[int]], tile_size=25):
-
+def generate_centers(image: list[list[int]], tile_size: int = 25):
+    """
+    Generates a grid of regions of one pixel. The distance between the regions
+    is the tile size.
+    :param image: list[list[int]]
+    :param tile_size: int
+    :return: list[list[int]]
+    """
     w, h = len(image[0]), len(image)
     tile_w = tile_size
     tile_h = tile_size
@@ -80,26 +55,42 @@ def generate_centers(image: list[list[int]], tile_size=25):
     return region_list
 
 
-def expand_edges(reg_map):
+def expand_edges(reg_map: list[list[int]]):
+    """
+    For each pixel in region map, if the pixel is an edge, adds the
+    four adjacent pixels to edges
+    :param reg_map: list[list[int]]
+    :return: None
+    """
     new_edges = []
     for i in range(len(reg_map)):
         for j in range(len(reg_map[i])):
             coord = reg_map[i][j]
-            if coord == 255:
-                neigh = [(-1, 0), (0, -1), (0, 1), (1, 0)]
-                for n in neigh:
-                    try:
-                        candidate = (i + n[0], j + n[1])
-                        if candidate not in new_edges:
-                            if reg_map[candidate[0]][candidate[1]] != 255:
-                                new_edges.append(candidate)
-                    except IndexError:
-                        pass
+            if coord != 255:
+                continue
+            neigh = [(-1, 0), (0, -1), (0, 1), (1, 0)]
+            for n in neigh:
+                try:
+                    candidate = (i + n[0], j + n[1])
+                    if candidate in new_edges:
+                        continue
+                    if reg_map[candidate[0]][candidate[1]] == 255:
+                        continue
+                    new_edges.append(candidate)
+                except IndexError:
+                    pass
     for e in new_edges:
         reg_map[e[0]][e[1]] = 255
 
+
 def update_region(region: Region, reg_map: list[list[int]]):
-    # naive way of expanding the regions
+    """
+    region by region adds all unclaimed neighboring tiles to the region
+    quite naive way of expanding the regions
+    :param region: Region
+    :param reg_map: list[list[int]]
+    :return: None
+    """
     new_region = []
     for coord in region.edges:
         neigh = [(-1, -1),(-1, 0),(-1, 1),(0, -1),(0, 1),(1, -1),(1, 0),(1, 1)]
@@ -107,10 +98,13 @@ def update_region(region: Region, reg_map: list[list[int]]):
         for n in neigh:
             candidate = (coord[0]+n[0], coord[1]+n[1])
             try:
-                if candidate not in region.center and candidate not in region.edges:
-                    if reg_map[candidate[0]][candidate[1]] == 0:
-                        if candidate not in new_region:
-                            new_region.append(candidate)
+                if candidate in region.center or candidate in region.edges:
+                    continue
+                if reg_map[candidate[0]][candidate[1]] != 0:
+                    continue
+                if candidate in new_region:
+                    continue #break here kinda yields better results
+                new_region.append(candidate)
             except IndexError:
                 pass
     region.update(new_region)
@@ -118,29 +112,24 @@ def update_region(region: Region, reg_map: list[list[int]]):
         reg_map[pixel[0]][pixel[1]] = region.code
 
 
-def visualize(table):
-    plt.imshow(np.array(table))
+def visualize(img: list[list[int]], title: str):
+    plt.imshow(np.array(img))
+    plt.title(title)
     plt.show()
 
 
-# generate the regions
-region_list = generate_centers(img_color, 15)
-
-
-visualize(regions_map)
-for i in range(1): expand_edges(regions_map)
-
-
-for i in range(50):
-    for r in region_list:
-        update_region(r, regions_map)
-
-visualize(regions_map)
-
-
-def is_green(pixels, tolerance_r: float, tolerance_b: float):
+def is_green(pixels: list[list[(int, int, int)]], tolerance_r: float, tolerance_b: float):
+    """
+    Calculates the average R, G, B values for a region, returns True if
+    G*tolerance_b > B and G*tolerance_r > R
+    :param pixels: list[list[(int, int, int)]]
+    :param tolerance_r: float
+    :param tolerance_b: float
+    :return: Bool
+    """
     r_sum, g_sum, b_sum = 0, 0, 0
     for p in pixels:
+        # so apparently the colors are BRG not RGB
         r_sum += p[2]
         g_sum += p[1]
         b_sum += p[0]
@@ -148,29 +137,67 @@ def is_green(pixels, tolerance_r: float, tolerance_b: float):
     g_sum /= len(pixels)
     b_sum /= len(pixels)
 
-    if g_sum*tolerance_b >= b_sum and g_sum*tolerance_r >= r_sum:
+    if g_sum*tolerance_b > b_sum and g_sum*tolerance_r > r_sum:
         return True
     else:
         return False
 
 
-new_col_im = copy.deepcopy(img_color)
-new_list = [[0]*len(image_cropped[0]) for _ in range(len(image_cropped))]
 
-for r in region_list:
-    c = 0
-    if is_green(r.og_pixels(img_color), 1.15, 0.65):
-        c = 1
-    for pixel in r.full_region():
-        new_list[pixel[0]][pixel[1]] = c
-        if c == 1:
-            new_col_im[pixel[0]][pixel[1]][1] = 255
+def main():
 
-visualize(new_list)
+    # Crop the image
+    x, y, w, h = 150, 50, 880, 680
 
-cv2.imshow("edges1", new_col_im)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    # Read the image for color detection
+    img_color = cv2.imread('plant3.jpg')[y:y+h, x:x+w]
 
-visualize(regions_map)
+    # Read the image for edge detection
+    image = cv2.imread('plant3.jpg', cv2.IMREAD_GRAYSCALE)
+    image_cropped = image[y:y+h, x:x+w]
+    blurred = cv2.GaussianBlur(image_cropped, (5, 5), 0)
+    image_edges = cv2.Canny(blurred, 50, 150)
 
+
+    regions_map = [[0]*len(image_cropped[0]) for _ in range(len(image_cropped))]
+    for i in range(len(image_edges)):
+        for j in range(len(image_edges[0])):
+            if image_edges[i][j] != 0:
+                regions_map[i][j] = 255
+
+
+    # generate the regions
+    region_list = generate_centers(img_color, 15)
+
+    # Make the edges thicker
+    for i in range(1): expand_edges(regions_map)
+
+    # Expand the regions
+    for i in range(80):
+        for r in region_list:
+            update_region(r, regions_map)
+
+    # Show different regions
+    visualize(regions_map, "Regions")
+
+    # in the color image, paint with green the areas which belong to a plant
+    new_col_im = copy.deepcopy(img_color)
+    new_list = [[0]*len(image_cropped[0]) for _ in range(len(image_cropped))]
+    for r in region_list:
+        c = 0
+        if is_green(r.og_pixels(img_color), 1.15, 0.65):
+            c = 1
+        for pixel in r.full_region():
+            new_list[pixel[0]][pixel[1]] = c
+            if c == 1:
+                new_col_im[pixel[0]][pixel[1]][1] = 255
+
+    # Show which regions are classified as a plant
+    visualize(new_list, "Is plant")
+
+    # Show color image in the background
+    cv2.imshow("Is Plant", new_col_im)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+main()
