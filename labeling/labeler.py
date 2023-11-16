@@ -1,6 +1,12 @@
 """
 Program used for giving labels to pictures. The pictures
 to be labeled need to be in the same folder
+
+Controls:
+L-Arrow, R-Arrow: move slider slowly
+D-Arrow, U-Arrow: move slider quickly
+Enter: save label, move to next image
+0: set label to 0, save label, move to next image
 """
 
 import os
