@@ -7,6 +7,7 @@ L-Arrow, R-Arrow: move slider slowly
 D-Arrow, U-Arrow: move slider quickly
 Enter: save label, move to next image
 0: set label to 0, save label, move to next image
+b: go back one image
 """
 
 import os
@@ -14,6 +15,8 @@ import tkinter as tk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 import csv
+
+output_file = 'labeledData.csv'
 
 
 class ImageLabelingApp:
@@ -61,7 +64,7 @@ class ImageLabelingApp:
                     tot[2] += p[1]
             self.current_image_colors = [tot[0]/100, tot[1]/100, tot[2]/100]
 
-            image = image.resize((400, 400))  # Adjust the size as needed
+            image = image.resize((600, 600))  # Adjust the size as needed
             photo = ImageTk.PhotoImage(image)
 
             self.image_label.config(image=photo)
@@ -76,6 +79,7 @@ class ImageLabelingApp:
         self.root.bind("<Up>", lambda event: self.adjust_slider(0.05))
         self.root.bind("<Return>", lambda event: self.next_image())
         self.root.bind("0", lambda event: self.zero())
+        self.root.bind("b", lambda event: self.back())
 
     def adjust_slider(self, step):
         current_value = self.label_var.get()
@@ -89,17 +93,23 @@ class ImageLabelingApp:
     def next_image(self):
         self.generated_data.append(self.current_image_colors + [self.label_var.get()])
         self.current_index += 1
+        if self.current_index == 11*14-1:
+            self.save_label()
         self.label_var.set(0.5)  # Reset slider value to the default
         self.load_image()
 
     def save_label(self):
         self.generated_data.pop(1) # first datapoint is faulty
-        with open("labeledData.txt", mode='w', newline='') as file:
-            # Create a CSV writer object
+        with open(output_file, mode='w', newline='') as file:
             writer = csv.writer(file)
-            # Write the data to the CSV file
             writer.writerows(self.generated_data)
         self.root.destroy()
+
+    def back(self):
+        self.generated_data.pop(-1)
+        self.current_index -= 1
+        self.label_var.set(0.5)
+        self.load_image()
 
 
 if __name__ == "__main__":
