@@ -44,12 +44,12 @@ def generate_centers(image: list[list[int]], tile_size: int = 25):
     tot_regions = len(x_centers)*len(y_centers)
     random_codes = random.sample(range(1000, 1001+tot_regions*5), tot_regions)
     counter = 0
-    for i in range(len(x_centers)):
-        for j in range(len(y_centers)):
+    for i in x_centers:
+        for j in y_centers:
             region_list.append(
                 Region(
                     random_codes[counter],
-                    [(int(y_centers[j]), int(x_centers[i]))]
+                    [(int(j), int(i))]
             ))
             counter += 1
     return region_list
@@ -57,15 +57,15 @@ def generate_centers(image: list[list[int]], tile_size: int = 25):
 
 def expand_edges(reg_map: list[list[int]]):
     """
-    For each pixel in region map, if the pixel is an edge, adds the
-    four adjacent pixels to edges
+    For each pixel in region map, if the pixel is an edge, tries to add
+    the four adjacent pixels to edges
     :param reg_map: list[list[int]]
     :return: None
     """
     new_edges = []
-    for i in range(len(reg_map)):
-        for j in range(len(reg_map[i])):
-            coord = reg_map[i][j]
+    for i, row in enumerate(reg_map):
+        for j, elem in enumerate(row):
+            coord = elem
             if coord != 255:
                 continue
             neigh = [(-1, 0), (0, -1), (0, 1), (1, 0)]
@@ -93,7 +93,7 @@ def update_region(region: Region, reg_map: list[list[int]]):
     """
     new_region = []
     for coord in region.edges:
-        neigh = [(-1, -1),(-1, 0),(-1, 1),(0, -1),(0, 1),(1, -1),(1, 0),(1, 1)]
+        neigh = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
         #neigh = [(-1, 0), (0, -1), (0, 1), (1, 0)]
         for n in neigh:
             candidate = (coord[0]+n[0], coord[1]+n[1])
@@ -143,7 +143,6 @@ def is_green(pixels: list[list[(int, int, int)]], tolerance_r: float, tolerance_
         return False
 
 
-
 def main():
 
     # Crop the image
@@ -158,22 +157,22 @@ def main():
     blurred = cv2.GaussianBlur(image_cropped, (5, 5), 0)
     image_edges = cv2.Canny(blurred, 50, 150)
 
-
-    regions_map = [[0]*len(image_cropped[0]) for _ in range(len(image_cropped))]
-    for i in range(len(image_edges)):
-        for j in range(len(image_edges[0])):
+    # Create the region map, tells us which pixels belong to which region
+    regions_map = [[0] * len(image_cropped[0]) for _ in range(len(image_cropped))]
+    for i, row in enumerate(image_edges):
+        for j, elem in enumerate(row):
             if image_edges[i][j] != 0:
                 regions_map[i][j] = 255
-
 
     # generate the regions
     region_list = generate_centers(img_color, 15)
 
     # Make the edges thicker
-    for i in range(1): expand_edges(regions_map)
+    for _ in range(1):
+        expand_edges(regions_map)
 
     # Expand the regions
-    for i in range(80):
+    for _ in range(80):
         for r in region_list:
             update_region(r, regions_map)
 
@@ -199,5 +198,6 @@ def main():
     cv2.imshow("Is Plant", new_col_im)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
 
 main()
