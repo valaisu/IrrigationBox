@@ -3,33 +3,31 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
 def crop_tensor(tensor, target_height, target_width):
     """
     Crops the tensor to the target height and width.
-    
+
     Parameters:
     tensor (torch.Tensor): The input tensor to be cropped. Should be 4D.
     target_height (int): The target height after cropping.
     target_width (int): The target width after cropping.
-    
+
     Returns:
     torch.Tensor: The cropped tensor.
     """
     current_height = tensor.size(2)
     current_width = tensor.size(3)
-    
+    #print(current_height, current_width, target_height, target_width)
     # Calculate the cropping boundaries
     y1 = (current_height - target_height) // 2
     y2 = y1 + target_height
     x1 = (current_width - target_width) // 2
     x2 = x1 + target_width
-    
+    #print(y1, y2, x1, x2)
     # Crop the tensor
     cropped_tensor = tensor[:, :, y1:y2, x1:x2]
-    
-    return cropped_tensor
 
+    return cropped_tensor
 
 
 class Net(nn.Module):
@@ -37,41 +35,45 @@ class Net(nn.Module):
         super().__init__()
 
         self.downsample1 = nn.Sequential(
-            nn.Conv2d(1, 64, 3),  # 64 * 570 * 570
+            nn.Conv2d(3, 64, 3),  # 64 * 570 * 570
             nn.ReLU(),
-            nn.Conv2d(64, 64, 3), # 64 * 568 * 568
+            nn.Conv2d(64, 64, 3),  # 64 * 568 * 568
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 64 * 284 * 284
+
         )
 
         self.downsample2 = nn.Sequential(
-            nn.Conv2d(64, 128, 3), # 128 * 282 * 282
+            nn.MaxPool2d(2, 2),  # 64 * 284 * 284
+            nn.Conv2d(64, 128, 3),  # 128 * 282 * 282
             nn.ReLU(),
-            nn.Conv2d(128, 128, 3), # 128 * 280 * 280
+            nn.Conv2d(128, 128, 3),  # 128 * 280 * 280
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # 128 * 140 * 140
+
         )
 
         self.downsample3 = nn.Sequential(
-            nn.Conv2d(128, 256, 3), # 256 * 138 * 138
+            nn.MaxPool2d(2, 2),  # 128 * 140 * 140
+            nn.Conv2d(128, 256, 3),  # 256 * 138 * 138
             nn.ReLU(),
-            nn.Conv2d(256, 256, 3), # 256 * 136 * 136
+            nn.Conv2d(256, 256, 3),  # 256 * 136 * 136
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # 256 * 68 * 68
+
         )
 
         self.downsample4 = nn.Sequential(
-            nn.Conv2d(256, 512, 3), # 512 * 66 * 66
+            nn.MaxPool2d(2, 2),  # 256 * 68 * 68
+            nn.Conv2d(256, 512, 3),  # 512 * 66 * 66
             nn.ReLU(),
-            nn.Conv2d(512, 512, 3), # 512 * 64 * 64
+            nn.Conv2d(512, 512, 3),  # 512 * 64 * 64
             nn.ReLU(),
-            nn.MaxPool2d(2, 2), # 512 * 32 * 32
+
         )
 
         self.bottom = nn.Sequential(
-            nn.Conv2d(512, 512, 3), # 512 * 30 * 30
+            nn.MaxPool2d(2, 2),  # 512 * 32 * 32
+            nn.Conv2d(512, 512, 3),  # 512 * 30 * 30
             nn.ReLU(),
-            nn.Conv2d(512, 512, 3), # 512 * 28 * 28
+            nn.Conv2d(512, 512, 3),  # 512 * 28 * 28
             nn.ReLU(),
             nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2)
         )
@@ -105,7 +107,7 @@ class Net(nn.Module):
             nn.ReLU(),
             nn.Conv2d(64, 64, 3),
             nn.ReLU(),
-            nn.Conv2d(64, 2, 1)
+            nn.Conv2d(64, 3, 1)
         )
 
     def forward(self, image):
@@ -119,6 +121,9 @@ class Net(nn.Module):
         image4_crop = crop_tensor(image, 56, 56)
         image = self.bottom(image)
 
+        #print("Shape of image4_crop:", image4_crop.shape)
+        #print("Shape of image after bottom:", image.shape)
+
         image = self.upsample4(torch.cat((image4_crop, image), dim=1))
         image = self.upsample3(torch.cat((image3_crop, image), dim=1))
         image = self.upsample2(torch.cat((image2_crop, image), dim=1))
@@ -126,6 +131,4 @@ class Net(nn.Module):
 
         return image
 
-
 # https://www.geeksforgeeks.org/u-net-architecture-explained/
-
