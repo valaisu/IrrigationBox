@@ -1,0 +1,131 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+
+def crop_tensor(tensor, target_height, target_width):
+    """
+    Crops the tensor to the target height and width.
+    
+    Parameters:
+    tensor (torch.Tensor): The input tensor to be cropped. Should be 4D.
+    target_height (int): The target height after cropping.
+    target_width (int): The target width after cropping.
+    
+    Returns:
+    torch.Tensor: The cropped tensor.
+    """
+    current_height = tensor.size(2)
+    current_width = tensor.size(3)
+    
+    # Calculate the cropping boundaries
+    y1 = (current_height - target_height) // 2
+    y2 = y1 + target_height
+    x1 = (current_width - target_width) // 2
+    x2 = x1 + target_width
+    
+    # Crop the tensor
+    cropped_tensor = tensor[:, :, y1:y2, x1:x2]
+    
+    return cropped_tensor
+
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.downsample1 = nn.Sequential(
+            nn.Conv2d(1, 64, 3),  # 64 * 570 * 570
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3), # 64 * 568 * 568
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # 64 * 284 * 284
+        )
+
+        self.downsample2 = nn.Sequential(
+            nn.Conv2d(64, 128, 3), # 128 * 282 * 282
+            nn.ReLU(),
+            nn.Conv2d(128, 128, 3), # 128 * 280 * 280
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # 128 * 140 * 140
+        )
+
+        self.downsample3 = nn.Sequential(
+            nn.Conv2d(128, 256, 3), # 256 * 138 * 138
+            nn.ReLU(),
+            nn.Conv2d(256, 256, 3), # 256 * 136 * 136
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # 256 * 68 * 68
+        )
+
+        self.downsample4 = nn.Sequential(
+            nn.Conv2d(256, 512, 3), # 512 * 66 * 66
+            nn.ReLU(),
+            nn.Conv2d(512, 512, 3), # 512 * 64 * 64
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # 512 * 32 * 32
+        )
+
+        self.bottom = nn.Sequential(
+            nn.Conv2d(512, 512, 3), # 512 * 30 * 30
+            nn.ReLU(),
+            nn.Conv2d(512, 512, 3), # 512 * 28 * 28
+            nn.ReLU(),
+            nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2)
+        )
+
+        self.upsample4 = nn.Sequential(
+            nn.Conv2d(1024, 512, 3),
+            nn.ReLU(),
+            nn.Conv2d(512, 512, 3),
+            nn.ReLU(),
+            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        )
+
+        self.upsample3 = nn.Sequential(
+            nn.Conv2d(512, 256, 3),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, 3),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        )
+
+        self.upsample2 = nn.Sequential(
+            nn.Conv2d(256, 198, 3),
+            nn.ReLU(),
+            nn.Conv2d(198, 198, 3),
+            nn.ReLU(),
+            nn.ConvTranspose2d(198, 64, kernel_size=2, stride=2)
+        )
+
+        self.upsample1 = nn.Sequential(
+            nn.Conv2d(128, 64, 3),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3),
+            nn.ReLU(),
+            nn.Conv2d(64, 2, 1)
+        )
+
+    def forward(self, image):
+        image = self.downsample1(image)
+        image1_crop = crop_tensor(image, 392, 392)
+        image = self.downsample2(image)
+        image2_crop = crop_tensor(image, 200, 200)
+        image = self.downsample3(image)
+        image3_crop = crop_tensor(image, 104, 104)
+        image = self.downsample4(image)
+        image4_crop = crop_tensor(image, 56, 56)
+        image = self.bottom(image)
+
+        image = self.upsample4(torch.cat((image4_crop, image), dim=1))
+        image = self.upsample3(torch.cat((image3_crop, image), dim=1))
+        image = self.upsample2(torch.cat((image2_crop, image), dim=1))
+        image = self.upsample1(torch.cat((image1_crop, image), dim=1))
+
+        return image
+
+
+# https://www.geeksforgeeks.org/u-net-architecture-explained/
+
