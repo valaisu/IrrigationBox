@@ -1,0 +1,36 @@
+import os
+
+from preprocessingData import pad
+
+
+"""
+Sorts the images and the labels. Pads them to match the right size
+"""
+
+
+def get_image_locations(folder_path="D:\\datasets\\plantData\\Plant_Phenotyping_Datasets\\Plant_Phenotyping_Datasets\\Plant\\Ara2013-Canon"):
+    """
+
+    :param folder_path:
+    :return: image_files, label_files
+    """
+    def is_label(p):
+        return p[-9:-4] == "label"
+
+    def is_image(p):
+        return p[-7:-4] == "rgb"
+
+    files = os.listdir(folder_path)
+
+    labels = [folder_path+"\\"+i for i in filter(is_label, files)]
+    images = [folder_path+"\\"+i for i in filter(is_image, files)]
+    return images, labels
+
+
+src, tgt = get_image_locations()
+pairs = list(zip(src, tgt))
+image_loc = "C:\\Users\\valai\\PycharmProjects\\plantDetection\\images\\images\\"
+label_loc = "C:\\Users\\valai\\PycharmProjects\\plantDetection\\images\\labels\\"
+for src, tgt in pairs:
+    pad(src, tgt, image_loc, label_loc)
+
