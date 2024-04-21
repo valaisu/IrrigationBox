@@ -36,23 +36,21 @@ def pad(image_path, label_path, image_output_folder, label_output_folder, desire
     if image_size > desired_size_label:
         pass  # this should be handlend properly, should no be problem for now
     # pad the label
-    padding_label = (desired_size_label - image_size)//2
+    padding_label1 = (desired_size_label - image_size)//2
+    padding_label2 = (desired_size_label - image_size)-padding_label1
     # pad the image
-    padding_image = (desired_size_data - image_size)//2
+    padding_image1 = (desired_size_data - image_size)//2
+    padding_image2 = (desired_size_data - image_size)-padding_image1
 
-    padded_image = ImageOps.expand(image, border=(padding_left+padding_image, padding_top+padding_image, padding_right+padding_image, padding_bottom+padding_image), fill=BROWN)
-    padded_label = ImageOps.expand(label, border=(padding_left+padding_label, padding_top+padding_label, padding_right+padding_label, padding_bottom+padding_label), fill="black")
+    padded_image = ImageOps.expand(image, border=(padding_left+padding_image1, padding_top+padding_image1, padding_right+padding_image2, padding_bottom+padding_image2), fill=BROWN)
+    padded_label = ImageOps.expand(label, border=(padding_left+padding_label1, padding_top+padding_label1, padding_right+padding_label2, padding_bottom+padding_label2), fill="black")
 
-    padded_image.save(image_output_folder + image_path.split("/")[-1])
-    padded_label.save(label_output_folder + label_path.split("/")[-1])
+    padded_image.save(image_output_folder + image_path.split("\\")[-1])
+    padded_label.save(label_output_folder + label_path.split("\\")[-1])
 
 # Example usage
-path_image = 'project/pictures/datapoints/ara2013_plant001_rgb.png'
+'''path_image = 'project/pictures/datapoints/ara2013_plant001_rgb.png'
 path_label = 'project/pictures/labels/ara2013_plant001_label.png'
 label_output = "project/pictures/processed/labels/"
 image_output = "project/pictures/processed/images/"
-pad(path_image, path_label, image_output, label_output)
-
-
-
-
+pad(path_image, path_label, image_output, label_output)'''
